@@ -1,24 +1,33 @@
-import json
-import urllib.request
-
+import requests
 from django.shortcuts import render
-
+from .models import City
+from .forms import CityForm
 
 def index(request):
+    url = 'http://api.openweathermap.org/data/2.5/weather?q={}&units=imperial&appid=bb5ff8282972f79e7666a4968381db98'
+
     if request.method == 'POST':
-        city = request.POST['city']
-        res = urllib.request.urlopen(
-            'http://api.openweathermap.org/data/2.5/weather?q='+city+'&appid=bb5ff8282972f79e7666a4968381db98').read()
-        json_data = json.loads(res)
-        data = {
-            "country_code": str(json_data['sys']['country']),
-            "coordinate": str(json_data['coord']['lon']) + ' ' + str(json_data['coord']['lat']),
-            "temp": str(json_data['main']['temp']) + 'k',
-            "pressure": str(json_data['main']['pressure']),
-            "humidity": str(json_data['main']['humidity']),
+        form = CityForm(request.POST)
+        form.save()
+
+    form = CityForm()
+
+    cities = City.objects.all()
+
+    weather_data = []
+
+    for city in cities:
+
+        r = requests.get(url.format(city)).json()
+
+        city_weather = {
+            'city' : city.name,
+            'temperature' : r['main']['temp'],
+            'description' : r['weather'][0]['description'],
+            'icon' : r['weather'][0]['icon'],
         }
 
-    else:
-        city = ''
-        data = {}
-    return render(request, 'index.html',  {'city': city, 'data': data})
+        weather_data.append(city_weather)
+
+    context = {'weather_data' : weather_data, 'form' : form}
+    return render(request, 'weather/weather.html', context)
